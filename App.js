@@ -1,33 +1,29 @@
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, Image, Alert } from 'react-native';
+import { View, Text, Button, FlatList, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getStorage, ref, uploadBytes, deleteObject, list } from "firebase/storage";
 
-
-
 const ImagePickerExample = () => {
   const [imageUri, setImageUri] = useState("https://previews.123rf.com/images/mironovak/mironovak1508/mironovak150800047/44239635-textura-de-tela-branca-ou-textura-de-padr%C3%A3o-de-grade-de-linho.jpg");
   const [uploading, setUploading] = useState(false);
-  const [image, setImage] = useState([null]);
+  const [images, setImages] = useState([]);
   const [visible, setVisible] = useState(false);
 
   const firebaseConfig = {
-    apiKey: "AIzaSyA3Kb9CCLDu4xfI9_rmCDLwkEPPTsOFL4c",
-    authDomain: "aula-mobile-76f22.firebaseapp.com",
-    projectId: "aula-mobile-76f22",
-    storageBucket: "aula-mobile-76f22.appspot.com",
-    messagingSenderId: "588274377803",
-    appId: "1:588274377803:web:74f45262068dddf72b99ce",
-    measurementId: "G-GNVSBPGQVC"
+    apiKey: "AIzaSyD6HE0AiWGfH5GZWi8DYI7b19LNxbOM83w",
+    authDomain: "atv-upload.firebaseapp.com",
+    projectId: "atv-upload",
+    storageBucket: "atv-upload.appspot.com",
+    messagingSenderId: "401034745075",
+    appId: "1:401034745075:web:fce41998a8e59d98099386",
+    measurementId: "G-6GKH4GXGZM"
   };
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
-
 
   //Armazena a imagem para o upload e exibe a imagem
   const pickImage = async () => {
@@ -48,14 +44,14 @@ const ImagePickerExample = () => {
     return Math.floor(Math.random() * max + 1)
   }
 
-
-
   //Método para realizar upload para o Firebase
   const uploadImage = async () => {
     if (!imageUri) {
       Alert.alert('Selecione uma imagem antes de enviar.');
       return;
     }
+
+    setUploading(true);
 
     // Create a root reference
     const storage = getStorage();
@@ -69,10 +65,16 @@ const ImagePickerExample = () => {
 
     uploadBytes(mountainsRef, blob).then((snapshot) => {
       console.log(snapshot);
+
+      // Adicionar a nova imagem à lista de imagens
+      const newImageLink = `https://firebasestorage.googleapis.com/v0/b/${snapshot.metadata.bucket}/o/${snapshot.metadata.fullPath}?alt=media`;
+      setImages((prevImages) => [...prevImages, newImageLink]);
+
       alert('Imagem enviada com sucesso!!');
+    }).finally(() => {
+      setUploading(false);
     });
   };
-
 
   //Listar no console as imagens salvas no storage
   async function LinkImage() {
@@ -84,49 +86,57 @@ const ImagePickerExample = () => {
     const firstPage = await list(listRef, { maxResults: 100 });
     var lista = [];
     firstPage.items.map((item) => {
-
       var link = ('https://firebasestorage.googleapis.com/v0/b/' +
         item.bucket + '/o/' + item.fullPath + '?alt=media');
       lista.push(link);
-
     })
-    setImage(lista);
+    setImages(lista);
     setVisible(true);
-    console.log(image);
+    console.log(images);
   }
 
-  const renderItem = ({ item }) => (
-    <View style={styles.item}>
-      <Text style={styles.title}>{item.link}</Text>
-    </View>
-  );
+  const deleteItem = async (img) => {
+    try {
+      const storage = getStorage();
+      const imageRef = ref(storage, img);
+      await deleteObject(imageRef);
+
+      // Atualizar a lista de imagens após a exclusão
+      setImages((prevImages) => prevImages.filter((image) => image !== img));
+
+    } catch (erro) {
+      alert('Erro!!');
+    } finally {
+      alert('Operação de deleção realizada!!');
+    }
+  };
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 30 }}>
       <Button title="Escolher Imagem" onPress={pickImage} />
       {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginVertical: 20 }} />}
       {uploading ? (
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
-        <View> <Button title="Enviar Imagem" onPress={uploadImage} disabled={!imageUri} /></View>
-
+        <View style={{ marginBottom: 10 }}>
+          <Button title="Enviar Imagem" onPress={uploadImage} disabled={!imageUri} />
+        </View>
       )}
-      <View><Button title="Ver Imagens" onPress={LinkImage} /></View>
+      <View style={{ marginBottom: 30 }}>
+        <Button title="Ver Imagens" onPress={LinkImage} />
+      </View>
       <FlatList
-        data={image}
+        data={images}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => (
-          <View style={{ marginBottom: 20, alignItems: 'center' }}>
-            <Image source={{ uri: item }} style={{ width: 50, height: 50 }} />
+          <View style={{ display: 'flex', flexDirection: 'row', gap: 20, marginBottom: 20, alignItems: 'center' }}>
+            <Image source={{ uri: item }} style={{ width: 100, height: 100 }} />
+            <Button title="Deletar" onPress={() => deleteItem(item)} />
           </View>
         )}
       />
-
     </View>
   );
 };
-
-
-
 
 export default ImagePickerExample;
